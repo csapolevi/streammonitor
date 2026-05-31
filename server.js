@@ -930,7 +930,7 @@ io.on('connection', socket => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n⚡ Stream Monitor szerver fut:`);
   console.log(`   Helyben: http://localhost:${PORT}/streammonitor.html`);
-  console.log(`   DDNS: https://streammonitor-3rs7zg.fly.dev:${PORT}/streammonitor.html\n`);
+  console.log(`   DDNS: https://streammonitor.onrender.com:${PORT}/streammonitor.html\n`);
   startTwitch();
   startKick();
   startYoutube();
