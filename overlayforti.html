@@ -12,8 +12,8 @@
 
   /* NINCS CHAT - csak social promo */
 
-  /* SOCIAL PROMO - fentről 300px, bal oldalt 20px */
-  .social-promo-container { position: fixed; top: 300px; left: 20px; z-index: 99; pointer-events: none; }
+  /* SOCIAL PROMO - fentről 385px, bal oldalt 20px */
+  .social-promo-container { position: fixed; top: 365px; left: 20px; z-index: 99; pointer-events: none; }
   .promo-banner { display: flex; align-items: center; gap: 16px; background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(0,0,0,0.75)); backdrop-filter: blur(12px); padding: 14px 28px 14px 22px; border-radius: 80px; border-left: 5px solid; box-shadow: 0 6px 20px rgba(0,0,0,0.5); animation: slideInLeft 0.5s ease-out; white-space: nowrap; }
   .promo-banner.hiding { animation: slideOutLeft 0.5s ease-out forwards; }
   .promo-logo { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
@@ -41,7 +41,7 @@
 <div class="bitrate-alert" id="bitrateAlert"></div>
 
 <script>
-const WS_HOST = 'streammonitor.onrender.com:3000';
+const WS_HOST = 'streammonitor.fly.dev:3000';
 const platformLogos = { twitch: "https://cdn-icons-png.flaticon.com/512/5968/5968819.png", kick: "https://upload.wikimedia.org/wikipedia/commons/d/dd/Kick_logo.svg", youtube: "https://cdn-icons-png.flaticon.com/512/1384/1384060.png", tiktok: "https://cdn-icons-png.flaticon.com/512/3046/3046121.png", instagram: "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" };
 const socialPromos = [
   { platform: "twitch", channelName: "csapolevente", logo: "https://cdn-icons-png.flaticon.com/512/5968/5968819.png" },
@@ -73,6 +73,7 @@ function createAndShowBanner(promoData, container) {
 }
 function startPromoCycle() { showPromoBanner(socialPromos[0]); promoIndex = 1; promoInterval = setInterval(() => { showPromoBanner(socialPromos[promoIndex % socialPromos.length]); promoIndex++; }, 8000); }
 
+// WebSocket csak a bitrate miatt (de nem látszik) - opcionális, de hagyom
 function connectWebSocket() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   const wsUrl = `ws://${WS_HOST}/ws`;
