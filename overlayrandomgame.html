@@ -1,0 +1,152 @@
+<!-- overlayrandomgame.html -->
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stream Overlay - Random Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+  body { background: transparent; font-family: 'Inter', 'Poppins', sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+  .chat-container { position: fixed; bottom: 20px; left: 20px; width: 420px; min-height: 100px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .chat-message { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(0,0,0,0.85); border-radius: 12px; backdrop-filter: blur(10px); animation: slideIn 0.3s ease-out; border-left: 3px solid; box-shadow: 0 3px 10px rgba(0,0,0,0.35); }
+  .chat-message.twitch { border-left-color: #9146ff; }
+  .chat-message.kick { border-left-color: #53fc18; }
+  .chat-message.youtube { border-left-color: #ff0000; }
+  .chat-message.tiktok { border-left-color: #ff0050; }
+  .chat-message.hiding { animation: fadeOut 0.4s ease forwards; }
+  .platform-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+  .platform-icon img { width: 26px; height: 26px; object-fit: contain; }
+  .message-content { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+  .username { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 15px; }
+  .text { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: #fff; word-break: break-word; }
+  .badge { display: inline-block; font-size: 9px; font-weight: 800; padding: 3px 7px; border-radius: 20px; text-transform: uppercase; }
+  .badge.sub { background: #9146ff; color: white; }
+  .badge.mod { background: #53fc18; color: black; }
+  .badge.vip { background: #ffd700; color: black; }
+  .twitch .username { color: #a970ff; }
+  .kick .username { color: #7cff44; }
+  .youtube .username { color: #ff5555; }
+  .tiktok .username { color: #ff3388; }
+
+  .social-promo-container { position: fixed; top: 20px; left: 20px; z-index: 99; pointer-events: none; }
+  .promo-banner { display: flex; align-items: center; gap: 16px; background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(0,0,0,0.75)); backdrop-filter: blur(12px); padding: 14px 28px 14px 22px; border-radius: 80px; border-left: 5px solid; box-shadow: 0 6px 20px rgba(0,0,0,0.5); animation: slideInLeft 0.5s ease-out; white-space: nowrap; }
+  .promo-banner.hiding { animation: slideOutLeft 0.5s ease-out forwards; }
+  .promo-logo { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+  .promo-logo img { width: 44px; height: 44px; object-fit: contain; }
+  .promo-channel { font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -0.5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  .promo-banner.twitch { border-left-color: #9146ff; }
+  .promo-banner.twitch .promo-channel { color: #a970ff; }
+  .promo-banner.youtube { border-left-color: #ff0000; }
+  .promo-banner.youtube .promo-channel { color: #ff5555; }
+  .promo-banner.kick { border-left-color: #53fc18; }
+  .promo-banner.kick .promo-channel { color: #7cff44; }
+  .promo-banner.instagram { border-left-color: #e4405f; }
+  .promo-banner.instagram .promo-channel { color: #ff6b8a; }
+  .promo-banner.tiktok { border-left-color: #ff0050; }
+  .promo-banner.tiktok .promo-channel { color: #ff3388; }
+
+  .bitrate-alert { display: none; }
+
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-50px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes fadeOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-35px); display: none; } }
+  @keyframes slideInLeft { from { opacity: 0; transform: translateX(-120px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-120px); } }
+</style>
+</head>
+<body>
+<div class="chat-container" id="chatContainer"></div>
+<div class="social-promo-container" id="socialPromoContainer"></div>
+<div class="bitrate-alert" id="bitrateAlert"></div>
+
+<script>
+const WS_HOST = 'csapolevi.ddns.net:3000';
+const MAX_MESSAGES = 6;  // Maximum 6 üzenet egyszerre
+const MESSAGE_LIFESPAN = 9000;  // 9 másodperc
+
+const platformLogos = { twitch: "https://cdn-icons-png.flaticon.com/512/5968/5968819.png", kick: "https://upload.wikimedia.org/wikipedia/commons/d/dd/Kick_logo.svg", youtube: "https://cdn-icons-png.flaticon.com/512/1384/1384060.png", tiktok: "https://cdn-icons-png.flaticon.com/512/3046/3046121.png", instagram: "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" };
+const socialPromos = [
+  { platform: "twitch", channelName: "csapolevente", logo: "https://cdn-icons-png.flaticon.com/512/5968/5968819.png" },
+  { platform: "youtube", channelName: "csapolevente", logo: "https://cdn-icons-png.flaticon.com/512/1384/1384060.png" },
+  { platform: "kick", channelName: "csapolevente", logo: "https://upload.wikimedia.org/wikipedia/commons/d/dd/Kick_logo.svg" },
+  { platform: "instagram", channelName: "csapolevi", logo: "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" },
+  { platform: "tiktok", channelName: "csapolevente", logo: "https://cdn-icons-png.flaticon.com/512/3046/3046121.png" }
+];
+
+let promoIndex = 0, currentBanner = null, promoInterval = null, activeMessages = [], ws = null, reconnectTimer = null;
+
+function showPromoBanner(promoData) {
+  const container = document.getElementById('socialPromoContainer');
+  if (!container) return;
+  if (currentBanner) {
+    currentBanner.classList.add('hiding');
+    setTimeout(() => { if (currentBanner?.parentNode) currentBanner.remove(); createAndShowBanner(promoData, container); }, 450);
+  } else { createAndShowBanner(promoData, container); }
+}
+function createAndShowBanner(promoData, container) {
+  const banner = document.createElement('div');
+  banner.className = `promo-banner ${promoData.platform}`;
+  banner.innerHTML = `<div class="promo-logo"><img src="${promoData.logo}" alt=""></div><div class="promo-channel">${promoData.channelName}</div>`;
+  container.appendChild(banner);
+  currentBanner = banner;
+  setTimeout(() => {
+    if (currentBanner === banner) { banner.classList.add('hiding'); setTimeout(() => { if (banner.parentNode) banner.remove(); if (currentBanner === banner) currentBanner = null; }, 450); }
+  }, 5000);
+}
+function startPromoCycle() { showPromoBanner(socialPromos[0]); promoIndex = 1; promoInterval = setInterval(() => { showPromoBanner(socialPromos[promoIndex % socialPromos.length]); promoIndex++; }, 8000); }
+
+function getBadgeHtml(badge) { const badges = { 'sub': '<span class="badge sub">SUB</span>', 'mod': '<span class="badge mod">MOD</span>', 'vip': '<span class="badge vip">VIP</span>' }; return badges[badge] || ''; }
+function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+function addMessage(msg) {
+  const chatContainer = document.getElementById('chatContainer');
+  if (!chatContainer) return;
+  const logoSrc = platformLogos[msg.platform];
+  const iconHtml = logoSrc ? `<div class="platform-icon"><img src="${logoSrc}" alt=""></div>` : `<div class="platform-icon">💬</div>`;
+  let badgesHtml = '';
+  if (msg.badges) msg.badges.forEach(b => { badgesHtml += getBadgeHtml(b); });
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `chat-message ${msg.platform}`;
+  messageDiv.innerHTML = `${iconHtml}<div class="message-content"><span class="username">${escapeHtml(msg.username)}:</span>${badgesHtml}<span class="text">${escapeHtml(msg.text)}</span></div>`;
+  chatContainer.appendChild(messageDiv);
+  activeMessages.push(messageDiv);
+  
+  // Ha túlléptük a maximumot, töröljük a legrégebbit
+  if (activeMessages.length > MAX_MESSAGES) {
+    const oldest = activeMessages.shift();
+    oldest.classList.add('hiding');
+    setTimeout(() => { if (oldest.parentNode) oldest.remove(); }, 400);
+  }
+  
+  // 9 másodperc után eltűnik
+  setTimeout(() => {
+    const index = activeMessages.indexOf(messageDiv);
+    if (index !== -1) { activeMessages.splice(index, 1); messageDiv.classList.add('hiding'); setTimeout(() => { if (messageDiv.parentNode) messageDiv.remove(); }, 400); }
+  }, MESSAGE_LIFESPAN);
+}
+
+function connectWebSocket() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  const wsUrl = `ws://${WS_HOST}/ws`;
+  try { ws = new WebSocket(wsUrl); } catch(e) { reconnectTimer = setTimeout(connectWebSocket, 3000); return; }
+  ws.onopen = () => console.log('[Random Game] Csatlakozva');
+  ws.onmessage = (event) => {
+    try {
+      const packet = JSON.parse(event.data);
+      if (packet.type === 'belabox' || packet.type === 'belabox_metrics') { return; }
+      if (packet.type === 'history') {
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) { chatContainer.innerHTML = ''; activeMessages = []; const chatMessages = packet.data.filter(m => m.msgType !== 'alert').slice(-MAX_MESSAGES); chatMessages.forEach(msgData => { addMessage({ platform: msgData.platform, username: msgData.username || 'Ismeretlen', text: msgData.text || '', badges: msgData.badges || [] }); }); }
+        return;
+      }
+      if (packet.type === 'message' && packet.data.msgType === 'chat') { const d = packet.data; addMessage({ platform: d.platform, username: d.username || 'Ismeretlen', text: d.text || '', badges: d.badges || [] }); }
+    } catch(e) { console.error(e); }
+  };
+  ws.onclose = () => { reconnectTimer = setTimeout(connectWebSocket, 3000); };
+}
+startPromoCycle();
+connectWebSocket();
+</script>
+</body>
+</html>

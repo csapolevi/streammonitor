@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0f">
+<title>Stream Monitor - Minden egy helyen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="icons/192.png">
+<link rel="shortcut icon" href="icons/favicon.ico" type="image/x-icon">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: #2a2a3a;
+    --twitch: #9146ff;
+    --kick: #53fc18;
+    --youtube: #ff0000;
+    --tiktok: #ff0050;
+    --streamlabs: #80f5d2;
+    --alert: #ff6b35;
+    --text: #e8e8f0;
+    --text2: #888899;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--twitch), var(--tiktok));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--alert);
+  }
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--alert);
+    border-radius: 50%;
+    animation: blink 1s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .belabox-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 10px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .belabox-left {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .belabox-label { font-size: 11px; }
+  .belabox-led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #00ff88;
+    box-shadow: 0 0 3px #00ff88;
+  }
+  .belabox-led.warning { background: #ffaa00; box-shadow: 0 0 3px #ffaa00; }
+  .belabox-led.critical { background: #ff3300; box-shadow: 0 0 4px #ff3300; animation: belaboxPulse 0.8s infinite; }
+  @keyframes belaboxPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .belabox-status { color: var(--text2); font-size: 9px; }
+  .belabox-metrics { display: flex; gap: 8px; color: var(--text2); flex-shrink: 0; }
+  .belabox-metrics strong { color: var(--text); font-weight: 600; font-size: 11px; }
+  .belabox-alert {
+    background: #ff3300;
+    color: white;
+    padding: 0px 5px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+
+  .alert-bar {
+    display: none;
+    background: linear-gradient(90deg, #ff3300, #ff6b35);
+    color: white;
+    padding: 4px 10px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    animation: alertPulse 0.5s ease-in-out infinite;
+  }
+  @keyframes alertPulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 5px 10px;
+    overflow-x: auto;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-bar::-webkit-scrollbar { display:none; }
+
+  .tab-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 30px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn .dot { width: 5px; height: 5px; border-radius: 50%; opacity: 0.5; }
+  .tab-btn.active { color: #fff; border-color: currentColor; }
+  .tab-btn.active .dot { opacity: 1; }
+  .tab-btn.active[data-p="all"] { border-color: #fff; color: #fff; background: rgba(255,255,255,0.08); }
+  .tab-btn.active[data-p="twitch"] { border-color: var(--twitch); color: var(--twitch); background: rgba(145,70,255,0.08); }
+  .tab-btn.active[data-p="kick"] { border-color: var(--kick); color: var(--kick); background: rgba(83,252,24,0.08); }
+  .tab-btn.active[data-p="youtube"] { border-color: var(--youtube); color: var(--youtube); background: rgba(255,0,0,0.08); }
+  .tab-btn.active[data-p="tiktok"] { border-color: var(--tiktok); color: var(--tiktok); background: rgba(255,0,80,0.08); }
+  .tab-btn.active[data-p="streamlabs"] { border-color: var(--streamlabs); color: var(--streamlabs); background: rgba(128,245,210,0.08); }
+
+  .setup-panel {
+    padding: 12px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: none;
+  }
+  .setup-panel.open { display: block; }
+  .setup-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .platform-label {
+    width: 80px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .platform-label.twitch { color: var(--twitch); }
+  .platform-label.kick { color: var(--kick); }
+  .platform-label.youtube { color: var(--youtube); }
+  .platform-label.tiktok { color: var(--tiktok); }
+  .platform-label.streamlabs { color: var(--streamlabs); }
+  .setup-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: monospace;
+    font-size: 11px;
+  }
+  .apply-btn {
+    background: linear-gradient(135deg, var(--twitch), #6930c3);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    padding: 6px 12px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .settings-btn, .clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text2);
+    padding: 4px 7px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 5px;
+  }
+  .clear-btn:active { background: var(--bg3); color: var(--alert); }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 85px);
+    overflow: hidden;
+  }
+
+  .chat-frame-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-frame-wrap iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+    height: 100%;
+    background: #000;
+  }
+
+  .custom-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 12px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-stats { font-size: 12px; color: var(--text2); }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .chat-message {
+    padding: 8px 12px;
+    background: var(--bg2);
+    border-radius: 10px;
+    animation: fadeIn 0.2s ease;
+    word-wrap: break-word;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .chat-message.twitch { border-left: 3px solid var(--twitch); }
+  .chat-message.kick { border-left: 3px solid var(--kick); }
+  .chat-message.youtube { border-left: 3px solid var(--youtube); }
+  .chat-message.tiktok { border-left: 3px solid var(--tiktok); }
+  .chat-message.alert { 
+    border-left: 3px solid var(--alert);
+    background: linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,59,0,0.05));
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chat-message .platform-icon { 
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    vertical-align: middle;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+  }
+  .platform-icon img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+  }
+  .chat-message .username { font-weight: 700; margin-right: 8px; font-size: 15px; }
+  .chat-message.twitch .username { color: var(--twitch); }
+  .chat-message.youtube .username { color: var(--youtube); }
+  .chat-message.tiktok .username { color: var(--tiktok); }
+  .chat-message.alert .username { color: var(--alert); }
+  .chat-message .badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-right: 5px;
+    background: var(--bg3);
+    color: var(--text2);
+  }
+  .chat-message .time {
+    font-size: 10px;
+    color: var(--text2);
+    margin-right: 8px;
+  }
+  .chat-message .text { font-size: 15px; }
+
+  .stream-player-wrap {
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    border-bottom: 1px solid var(--border);
+  }
+  .stream-player-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 10px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    gap: 6px;
+  }
+  .stream-player-bar span { font-size: 10px; color: var(--text2); }
+  .kick-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .kick-badge .kick-icon {
+    color: var(--kick);
+    font-weight: bold;
+  }
+  .toggle-player-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text2);
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .player-iframe-wrap {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    background: #000;
+  }
+  .player-iframe-wrap iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  .info-bar {
+    padding: 4px 10px;
+    background: var(--bg3);
+    border-top: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text2);
+    font-family: monospace;
+    display: none;
+  }
+  .info-bar.visible { display: block; }
+
+  .alert-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #ff6b35, #ff3b00);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-weight: bold;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    max-width: 260px;
+    font-size: 12px;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .no-stream-msg {
+    text-align: center;
+    color: #666;
+    padding: 40px;
+    font-size: 12px;
+  }
+  
+  @media (max-width: 600px) {
+    .belabox-hidden-mobile { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">⚡ Stream Monitor</span>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div class="live-badge" id="liveBadge" style="display:none;"><div class="live-dot"></div> LIVE</div>
+    <button class="clear-btn" onclick="clearAllMessages()">🗑️</button>
+    <button class="settings-btn" onclick="toggleSetup()">⚙️</button>
+  </div>
+</header>
+
+<div class="setup-panel" id="setupPanel">
+  <div class="setup-row"><span class="platform-label twitch">Twitch</span><input class="setup-input" id="twitchChannel" placeholder="csatornanev"></div>
+  <div class="setup-row"><span class="platform-label kick">Kick</span><input class="setup-input" id="kickChannel" placeholder="csatornanev"></div>
+  <div class="setup-row"><span class="platform-label youtube">YouTube</span><input class="setup-input" id="youtubeChannel" placeholder="@csatorna vagy Video ID"></div>
+  <div class="setup-row"><span class="platform-label tiktok">TikTok</span><input class="setup-input" id="tiktokChannel" placeholder="csatornanev"></div>
+  <div class="setup-row"><span class="platform-label streamlabs">Streamlabs</span><input class="setup-input" id="streamlabsToken" placeholder="Streamlabs Token"></div>
+  <button class="apply-btn" onclick="applySettings()">✅ MENTÉS</button>
+</div>
+
+<div class="belabox-compact" id="belaboxCompact">
+  <div class="belabox-left">
+    <span class="belabox-label">📡</span>
+    <span class="belabox-led" id="belaboxLed"></span>
+    <span class="belabox-status" id="belaboxStatus">Belabox</span>
+  </div>
+  <div class="belabox-metrics">
+    <span>📊 <strong id="belaboxBitrate">0</strong> <span style="font-size: 9px;">kbps</span></span>
+    <span>⏱️ <strong id="belaboxRtt">0</strong> <span style="font-size: 9px;">ms</span></span>
+    <span class="belabox-hidden-mobile">📦 <strong id="belaboxDropped">0</strong></span>
+  </div>
+  <div class="belabox-alert" id="belaboxAlert" style="display:none;">⚠️ BAJ VAN!</div>
+</div>
+
+<div class="alert-bar" id="alertBar">
+  ⚠️ <span id="alertBarMessage">Stream probléma!</span> ⚠️
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-p="all" onclick="openChat('all', this)"><span class="dot" style="background:#fff;"></span> 📋 ÖSSZES</button>
+  <button class="tab-btn" data-p="twitch" onclick="openChat('twitch', this)"><span class="dot" style="background:var(--twitch);"></span> TWITCH</button>
+  <button class="tab-btn" data-p="kick" onclick="openChat('kick', this)"><span class="dot" style="background:var(--kick);"></span> KICK</button>
+  <button class="tab-btn" data-p="youtube" onclick="openChat('youtube', this)"><span class="dot" style="background:var(--youtube);"></span> YOUTUBE</button>
+  <button class="tab-btn" data-p="tiktok" onclick="openChat('tiktok', this)"><span class="dot" style="background:var(--tiktok);"></span> TIKTOK</button>
+  <button class="tab-btn" data-p="streamlabs" onclick="openChat('streamlabs', this)"><span class="dot" style="background:var(--streamlabs);"></span> ALERTS</button>
+</div>
+
+<div class="main">
+  <div class="chat-frame-wrap" id="chatFrameWrap">
+
+    <div class="stream-player-wrap" id="streamPlayerWrap">
+      <div class="stream-player-bar">
+        <div class="kick-badge"><span>🎮</span><span class="kick-icon">KICK</span><span>LIVE PREVIEW</span></div>
+        <button class="toggle-player-btn" onclick="togglePlayer()" id="togglePlayerBtn">▲ Elrejt</button>
+      </div>
+      <div class="player-iframe-wrap" id="playerIframeWrap">
+        <iframe id="streamIframe" src="" allow="autoplay; fullscreen" allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <div class="custom-chat" id="customChat" style="display:flex;">
+      <div class="chat-header">
+        <span>💬 Üzenetek</span>
+        <span class="chat-stats" id="messageCount">0 üzenet</span>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div style="text-align:center;color:#888;padding:40px;">💬 Csatlakozás a szerverhez...</div>
+      </div>
+    </div>
+    <iframe id="streamlabsIframe" src="" allow="autoplay" style="display:none; flex:1; border:none; width:100%; height:100%;"></iframe>
+  </div>
+  <div class="info-bar" id="infoBar"></div>
+</div>
+
+<script>
+const WS_HOST = 'csapolevi.ddns.net:3000';
+
+const config = {
+  twitch: localStorage.getItem('sm_twitch') || 'csapolevente',
+  kick: localStorage.getItem('sm_kick') || '',
+  youtube: localStorage.getItem('sm_youtube') || '@csapoleventetwitch',
+  tiktok: localStorage.getItem('sm_tiktok') || 'csapolevente',
+  streamlabs: localStorage.getItem('sm_streamlabs') || ''
+};
+
+let activeTab = 'all';
+let allMessages = [];
+let messageId = 0;
+let ws = null;
+let wsReconnectTimer = null;
+let reconnectDelay = 1000;
+let lastHealthStatus = null;
+
+let userScrolledUp = false;
+let scrollTimeout = null;
+
+const platformLogos = {
+  twitch: "https://cdn-icons-png.flaticon.com/512/5968/5968819.png",
+  kick: "https://upload.wikimedia.org/wikipedia/commons/d/dd/Kick_logo.svg",
+  youtube: "https://cdn-icons-png.flaticon.com/512/1384/1384060.png",
+  tiktok: "https://cdn-icons-png.flaticon.com/512/3046/3046121.png"
+};
+
+const platformInfo = {
+  twitch: { icon: platformLogos.twitch, name: 'Twitch', color: '#9146ff' },
+  youtube: { icon: platformLogos.youtube, name: 'YouTube', color: '#ff0000' },
+  tiktok: { icon: platformLogos.tiktok, name: 'TikTok', color: '#ff0050' },
+  kick: { icon: platformLogos.kick, name: 'Kick', color: '#53fc18' },
+  streamlabs: { icon: '🔔', name: 'Streamlabs', color: '#80f5d2' },
+  streamelements: { icon: '⚡', name: 'StreamElements', color: '#fca503' }
+};
+
+function connectSocket() {
+  if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = `${proto}://${WS_HOST}/ws`;
+  console.log('WebSocket csatlakozás:', wsUrl);
+  try { ws = new WebSocket(wsUrl); }
+  catch(e) { console.error('WebSocket létrehozási hiba:', e); scheduleReconnect(); return; }
+
+  ws.onopen = () => {
+    console.log('✅ WebSocket csatlakozva');
+    reconnectDelay = 1000;
+    const msgDiv = document.getElementById('chatMessages');
+    if (msgDiv && allMessages.length === 0) msgDiv.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">💬 Várakozás üzenetekre...</div>';
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const packet = JSON.parse(event.data);
+      if (packet.type === 'history') {
+        const notice = document.getElementById('reconnect-notice');
+        if (notice) notice.remove();
+        allMessages = packet.data.map((d, i) => ({
+          id: i, timestamp: d.ts || Date.now(), platform: d.platform, type: d.msgType || d.type,
+          username: d.username || 'Rendszer', text: d.text || '', alertType: d.alertType,
+          icon: d.icon, color: d.color, badges: d.badges || []
+        }));
+        messageId = allMessages.length;
+        if (allMessages.length > 0) showHistoryBanner(allMessages.length);
+        renderMessages(); updateStats();
+        return;
+      }
+      if (packet.type === 'message') {
+        const d = packet.data;
+        const msg = { id: messageId++, timestamp: d.ts || Date.now(), platform: d.platform, type: d.msgType || d.type,
+          username: d.username || 'Rendszer', text: d.text || '', alertType: d.alertType,
+          icon: d.icon, color: d.color, badges: d.badges || [] };
+        allMessages.push(msg);
+        if (allMessages.length > 500) allMessages = allMessages.slice(-500);
+        if (activeTab === 'all' || activeTab === d.platform) appendSingleMessage(msg);
+        else showToast(d);
+        updateStats();
+      }
+      if (packet.type === 'belabox_metrics' || packet.type === 'belabox') updateHealthDisplay(packet.data);
+    } catch(e) { console.error('Üzenet parse hiba:', e); }
+  };
+
+  ws.onerror = (e) => console.error('WebSocket hiba:', e);
+  ws.onclose = (e) => {
+    console.log('WebSocket lezárva, újracsatlakozás...', e.code);
+    const msgDiv = document.getElementById('chatMessages');
+    if (msgDiv && allMessages.length === 0) msgDiv.innerHTML = `<div style="text-align:center;color:#ff6b35;padding:30px;font-size:13px;">⚠️ Kapcsolat megszakadt<br><small style="color:#666">${WS_HOST} — code ${e.code}</small><br><br>Újracsatlakozás ${Math.round(reconnectDelay/1000)}mp múlva...</div>`;
+    else if (msgDiv) { const old = document.getElementById('reconnect-notice'); if (old) old.remove(); const notice = document.createElement('div');
+      notice.id = 'reconnect-notice'; notice.style.cssText = 'text-align:center;color:#ff6b35;padding:6px;font-size:11px;background:rgba(255,107,53,0.1);border-radius:6px;margin-bottom:4px;';
+      notice.textContent = `⚠️ Kapcsolat megszakadt – újracsatlakozás ${Math.round(reconnectDelay/1000)}mp múlva...`; msgDiv.insertBefore(notice, msgDiv.firstChild); }
+    scheduleReconnect();
+  };
+}
+
+function initScrollListener() {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+  container.addEventListener('scroll', () => {
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 30;
+    if (isAtBottom) { 
+      userScrolledUp = false; 
+      if (scrollTimeout) clearTimeout(scrollTimeout); 
+    } else { 
+      if (!userScrolledUp) { 
+        userScrolledUp = true; 
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => { 
+          if (!userScrolledUp) return; 
+          const stillNotAtBottom = container.scrollHeight - container.scrollTop > container.clientHeight + 100; 
+          if (!stillNotAtBottom) userScrolledUp = false; 
+        }, 10000); 
+      } 
+    }
+  });
+}
+
+function updateHealthDisplay(data) {
+  if (!data || !data.metrics) return;
+  const metrics = data.metrics;
+  const status = data.status || 'good';
+  const alertMsg = data.alert?.message || null;
+  const bitrate = metrics.bitrate || 0;
+  document.getElementById('belaboxBitrate').innerHTML = bitrate;
+  document.getElementById('belaboxRtt').innerHTML = metrics.rtt || 0;
+  document.getElementById('belaboxDropped').innerHTML = metrics.droppedPkts || 0;
+  const led = document.getElementById('belaboxLed');
+  const statusSpan = document.getElementById('belaboxStatus');
+  led.classList.remove('warning', 'critical');
+  if (status === 'good') { led.style.background = '#00ff88'; statusSpan.innerHTML = '✅ OK'; statusSpan.style.color = '#00ff88'; }
+  else if (status === 'warning') { led.classList.add('warning'); statusSpan.innerHTML = '⚠️ Figy.'; statusSpan.style.color = '#ffaa00'; }
+  else if (status === 'critical') { led.classList.add('critical'); statusSpan.innerHTML = '🔴 KRITIKUS'; statusSpan.style.color = '#ff3300'; }
+  const alertIcon = document.getElementById('belaboxAlert');
+  if (alertMsg && status !== 'good') { alertIcon.style.display = 'flex'; alertIcon.title = alertMsg; }
+  else { alertIcon.style.display = 'none'; }
+  const alertBar = document.getElementById('alertBar');
+  const alertBarMessage = document.getElementById('alertBarMessage');
+  
+  const isZeroBitrate = (bitrate === 0);
+  const isLowBitrate = (bitrate > 0 && bitrate < 1500);
+  const isCritical = (status === 'critical' && alertMsg);
+  
+  if (isZeroBitrate || isLowBitrate || isCritical) {
+    let displayMessage = '';
+    if (bitrate === 0) {
+      displayMessage = '🔴 A STREAM MEGÁLLT! (0 kbps) 🔴';
+    } else if (bitrate < 1500) {
+      displayMessage = `⚠️ TÚL ALACSONY BITRÁTA: ${bitrate} kbps (min. 1500) ⚠️`;
+    } else if (alertMsg) {
+      displayMessage = alertMsg;
+    }
+    alertBarMessage.innerHTML = displayMessage;
+    alertBar.style.display = 'block';
+    
+    if ((isZeroBitrate && (!lastHealthStatus || lastHealthStatus.bitrate !== 0)) ||
+        (isLowBitrate && (!lastHealthStatus || lastHealthStatus.bitrate >= 1500))) {
+      playCriticalAlertSound();
+      if (isZeroBitrate) console.log('🔴 KRITIKUS: A stream bitráta 0-ra esett!');
+      else if (isLowBitrate) console.log(`⚠️ FIGYELMEZTETÉS: A stream bitráta ${bitrate} kbps-ra esett (1500 alatt)!`);
+    }
+  } else {
+    alertBar.style.display = 'none';
+  }
+  lastHealthStatus = { status, alertMsg, bitrate };
+}
+
+function playCriticalAlertSound() {
+  try { const audio = new Audio('data:audio/wav;base64,U3RlYW0gTW9uaXRvciBBbGVydA=='); audio.volume = 0.3; audio.play().catch(e => console.log('hang letiltva')); } catch(e) {}
+}
+
+function scheduleReconnect() { wsReconnectTimer = setTimeout(() => { reconnectDelay = Math.min(reconnectDelay * 1.5, 15000); connectSocket(); }, reconnectDelay); }
+
+function showHistoryBanner(count) { const container = document.getElementById('chatMessages'); if (!container) return; const banner = document.createElement('div'); banner.style.cssText = 'text-align:center;color:#888;padding:8px 14px;font-size:11px;border-bottom:1px solid #2a2a3a;margin-bottom:4px;'; banner.innerHTML = `📚 <strong style="color:#80f5d2">${count}</strong> korábbi üzenet betöltve`; container.insertBefore(banner, container.firstChild); }
+
+function buildMessageElement(msg) {
+  const div = document.createElement('div');
+  const time = new Date(msg.timestamp).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const platform = platformInfo[msg.platform] || { icon: '💬', name: msg.platform, color: '#fff' };
+  
+  let iconHtml = '';
+  if (platform.icon && (platform.icon.startsWith('http') || platform.icon.startsWith('/'))) {
+    iconHtml = `<span class="platform-icon"><img src="${platform.icon}" alt="${platform.name}" style="width:20px;height:20px;" onerror="this.style.display='none'"></span>`;
+  } else {
+    iconHtml = `<span class="platform-icon">${platform.icon || '💬'}</span>`;
+  }
+
+  let badgesHtml = '';
+  (msg.badges || []).forEach(b => { 
+    if (b === 'sub') badgesHtml += '<span class="badge">⭐ SUB</span>'; 
+    else if (b === 'mod') badgesHtml += '<span class="badge">🔧 MOD</span>'; 
+    else if (b === 'vip') badgesHtml += '<span class="badge">💎 VIP</span>'; 
+  });
+  
+  if (msg.type === 'alert') div.className = 'chat-message alert';
+  else div.className = `chat-message ${msg.platform}`;
+  
+  div.innerHTML = `<span class="time">${time}</span>${iconHtml}${badgesHtml}<span class="username" style="color:${msg.type === 'alert' ? 'var(--alert)' : (msg.color || platform.color)}">${msg.type === 'alert' ? `[${msg.alertType || 'ALERT'}]` : escapeHtml(msg.username)}:</span><span class="text">${escapeHtml(msg.text)}</span>`;
+  return div;
+}
+
+// ✅ JAVÍTOTT: Auto-scroll - mindig a legvégére görget, ha a felhasználó nincs feljebb görgetve
+function appendSingleMessage(msg) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+  if (container.children.length === 1 && allMessages.length <= 1) container.innerHTML = '';
+  
+  container.appendChild(buildMessageElement(msg));
+  while (container.children.length > 500) container.removeChild(container.firstChild);
+  
+  // Csak akkor görgetünk, ha a felhasználó nem görgetett feljebb
+  if (!userScrolledUp) {
+    setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 10);
+  }
+  updateStats();
+}
+
+function renderMessages() {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+  const filtered = activeTab === 'all' ? allMessages : allMessages.filter(m => m.platform === activeTab);
+  if (filtered.length === 0) { container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">💬 Nincs még üzenet</div>'; return; }
+  container.innerHTML = '';
+  filtered.forEach(msg => container.appendChild(buildMessageElement(msg)));
+  container.scrollTop = container.scrollHeight;
+  userScrolledUp = false;
+  updateStats();
+}
+
+function showToast(msg) {
+  const platform = platformInfo[msg.platform] || { icon: '💬', name: msg.platform };
+  const toast = document.createElement('div');
+  toast.className = 'alert-toast';
+  toast.innerHTML = `<div style="display:flex;gap:10px;"><span>${msg.type === 'alert' ? (msg.icon || '🔔') : (platform.icon && platform.icon.startsWith('http') ? '🔔' : platform.icon)}</span><div><div style="font-size:11px;">${msg.type === 'alert' ? (msg.alertType || 'ALERT') : platform.name}</div><div><strong>${escapeHtml(msg.username)}</strong>: ${escapeHtml(msg.text).substring(0, 40)}</div></div></div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+function updateStats() { const count = activeTab === 'all' ? allMessages.length : allMessages.filter(m => m.platform === activeTab).length; const el = document.getElementById('messageCount'); if (el) el.textContent = `${count} üzenet`; }
+function clearAllMessages() { if (confirm('Összes üzenet törlése?')) { allMessages = []; messageId = 0; renderMessages(); updateStats(); } }
+function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+window.addEventListener('load', () => {
+  document.getElementById('twitchChannel').value = config.twitch;
+  document.getElementById('kickChannel').value = config.kick;
+  document.getElementById('youtubeChannel').value = config.youtube;
+  document.getElementById('tiktokChannel').value = config.tiktok;
+  document.getElementById('streamlabsToken').value = config.streamlabs;
+  if (config.twitch || config.kick || config.youtube || config.tiktok || config.streamlabs) document.getElementById('liveBadge').style.display = 'flex';
+  connectSocket();
+  initScrollListener();
+  if (config.kick && config.kick !== '') loadKickStream();
+});
+
+function toggleSetup() { document.getElementById('setupPanel').classList.toggle('open'); }
+
+function applySettings() {
+  config.twitch = document.getElementById('twitchChannel').value.trim().toLowerCase();
+  config.kick = document.getElementById('kickChannel').value.trim().toLowerCase();
+  config.youtube = document.getElementById('youtubeChannel').value.trim();
+  config.tiktok = document.getElementById('tiktokChannel').value.trim().toLowerCase();
+  config.streamlabs = document.getElementById('streamlabsToken').value.trim();
+  localStorage.setItem('sm_twitch', config.twitch);
+  localStorage.setItem('sm_kick', config.kick);
+  localStorage.setItem('sm_youtube', config.youtube);
+  localStorage.setItem('sm_tiktok', config.tiktok);
+  localStorage.setItem('sm_streamlabs', config.streamlabs);
+  document.getElementById('liveBadge').style.display = (config.twitch || config.kick || config.youtube || config.tiktok || config.streamlabs) ? 'flex' : 'none';
+  document.getElementById('setupPanel').classList.remove('open');
+  if (config.kick && config.kick !== '') loadKickStream();
+  else document.getElementById('streamIframe').src = '';
+  if (activeTab) openChat(activeTab, document.querySelector(`[data-p="${activeTab}"]`));
+}
+
+let playerCollapsed = false;
+function loadKickStream() { const iframe = document.getElementById('streamIframe'); if (config.kick && config.kick !== '') { iframe.src = `https://player.kick.com/${config.kick}`; console.log('[Player] Kick stream betöltve:', config.kick); } else { iframe.src = ''; } }
+function togglePlayer() { const iframeWrap = document.getElementById('playerIframeWrap'); const btn = document.getElementById('togglePlayerBtn'); playerCollapsed = !playerCollapsed; iframeWrap.style.display = playerCollapsed ? 'none' : ''; btn.textContent = playerCollapsed ? '▼ Mutat' : '▲ Elrejt'; }
+
+function openChat(platform, btn) {
+  activeTab = platform;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const customChat = document.getElementById('customChat');
+  const streamlabsIframe = document.getElementById('streamlabsIframe');
+  const infoBar = document.getElementById('infoBar');
+  const streamPlayerWrap = document.getElementById('streamPlayerWrap');
+  streamlabsIframe.style.display = 'none';
+  if (platform === 'streamlabs') {
+    customChat.style.display = 'none';
+    streamPlayerWrap.style.display = 'none';
+    streamlabsIframe.style.display = 'flex';
+    const token = config.streamlabs;
+    if (token) streamlabsIframe.src = `https://streamlabs.com/dashboard/recent-events?token=${token}`;
+    infoBar.textContent = 'Streamlabs Alert Box';
+    infoBar.classList.add('visible');
+    return;
+  }
+  streamPlayerWrap.style.display = 'flex';
+  customChat.style.display = 'flex';
+  if (platform === 'all') infoBar.textContent = '📋 ÖSSZES - Twitch, Kick, YouTube, TikTok chat egy helyen';
+  else { const channel = config[platform]; const names = { twitch: 'Twitch', kick: 'Kick', youtube: 'YouTube', tiktok: 'TikTok' }; infoBar.textContent = channel ? `${names[platform]} chat - @${channel}` : `⚠️ ${names[platform] || platform} nincs beállítva!`; }
+  infoBar.classList.add('visible');
+  renderMessages();
+}
+</script>
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').then(reg => console.log('Service Worker regisztrálva:', reg.scope)).catch(err => console.error('Service Worker hiba:', err)); }); }
+</script>
+</body>
+</html>
